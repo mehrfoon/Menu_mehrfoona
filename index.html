@@ -670,15 +670,15 @@
 <div class="toast" id="toast"></div>
 
 <script>
-// تنظیمات اتصال به Supabase
 const SUPABASE_URL = 'https://poisergmohkntddzbhhi.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_py_PgCVX98eszkf4Y5m8Nw_trcc6nld';
-let supabase = null;
+let supabaseClient = null;
+
 try {
-  if (window.supabase) {
-    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  if (window.supabase && typeof window.supabase.createClient === 'function') {
+    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   }
-} catch(e) {
+} catch (e) {
   console.error("Supabase init error:", e);
 }
 
@@ -705,19 +705,19 @@ async function initData(){
 }
 
 async function loadDbData(){
-  if (!supabase) return;
+  if (!supabaseClient) return;
   try {
-    const { data: catData, error: catErr } = await supabase.from('categories').select('*');
+    const { data: catData, error: catErr } = await supabaseClient.from('categories').select('*');
     if (!catErr && catData && catData.length > 0) {
       categories = catData;
     }
 
-    const { data: prodData, error: prodErr } = await supabase.from('products').select('*');
+    const { data: prodData, error: prodErr } = await supabaseClient.from('products').select('*');
     if (!prodErr && prodData) {
       products = prodData;
     }
   } catch (err) {
-    console.error("Failed to load from database:", err);
+    console.error("Network or DB load error:", err);
   }
 }
 
@@ -731,56 +731,76 @@ function loadAdminCredentials(){
 }
 
 function onDataChange(){
-  if(currentView === 'home') renderHome();
-  if(currentView === 'shop') renderShop();
-  if(currentView === 'adminDash'){ populateCategorySelects(); renderAdminCats(); renderAdminProds(); prepareSettingsForm(); }
+  try {
+    if(currentView === 'home') renderHome();
+    if(currentView === 'shop') renderShop();
+    if(currentView === 'adminDash'){ populateCategorySelects(); renderAdminCats(); renderAdminProds(); prepareSettingsForm(); }
+  } catch(e) {
+    console.error("Render error:", e);
+  }
 }
 
 async function catAdd(name){
-  if (!supabase) { showToast('ارتباط با دیتابیس برقرار نیست'); return; }
-  const { data, error } = await supabase.from('categories').insert([{ name }]).select();
-  if(!error && data) {
-    categories.push(data[0]);
-    onDataChange();
-    showToast('دسته‌بندی با موفقیت افزوده شد.');
-  } else {
-    showToast('خطا در افزودن دسته‌بندی به دیتابیس');
+  if (!supabaseClient) { showToast('ارتباط با دیتابیس برقرار نیست'); return; }
+  try {
+    const { data, error } = await supabaseClient.from('categories').insert([{ name }]).select();
+    if(!error && data && data.length > 0) {
+      categories.push(data[0]);
+      onDataChange();
+      showToast('دسته‌بندی با موفقیت افزوده شد.');
+    } else {
+      showToast('خطا در ثبت دسته‌بندی');
+    }
+  } catch(err) {
+    showToast('خطای شبکه');
   }
 }
 
 async function catDelete(id){
-  if (!supabase) return;
-  const { error } = await supabase.from('categories').delete().eq('id', id);
-  if(!error){
-    categories = categories.filter(c=>c.id!=id);
-    onDataChange();
-    showToast('دسته‌بندی حذف شد.');
-  } else {
-    showToast('خطا در حذف دسته‌بندی');
+  if (!supabaseClient) return;
+  try {
+    const { error } = await supabaseClient.from('categories').delete().eq('id', id);
+    if(!error){
+      categories = categories.filter(c => String(c.id) !== String(id));
+      onDataChange();
+      showToast('دسته‌بندی حذف شد.');
+    } else {
+      showToast('خطا در حذف دسته‌بندی');
+    }
+  } catch(err) {
+    showToast('خطای شبکه');
   }
 }
 
 async function prodAdd(obj){
-  if (!supabase) { showToast('ارتباط با دیتابیس برقرار نیست'); return; }
-  const { data, error } = await supabase.from('products').insert([obj]).select();
-  if(!error && data){
-    products.push(data[0]);
-    onDataChange();
-    showToast('محصول با موفقیت اضافه شد.');
-  } else {
-    showToast('خطا در افزودن محصول به دیتابیس');
+  if (!supabaseClient) { showToast('ارتباط با دیتابیس برقرار نیست'); return; }
+  try {
+    const { data, error } = await supabaseClient.from('products').insert([obj]).select();
+    if(!error && data && data.length > 0){
+      products.push(data[0]);
+      onDataChange();
+      showToast('محصول با موفقیت اضافه شد.');
+    } else {
+      showToast('خطا در ثبت محصول');
+    }
+  } catch(err) {
+    showToast('خطای شبکه');
   }
 }
 
 async function prodDelete(id){
-  if (!supabase) return;
-  const { error } = await supabase.from('products').delete().eq('id', id);
-  if(!error){
-    products = products.filter(p=>p.id!=id);
-    onDataChange();
-    showToast('محصول حذف شد.');
-  } else {
-    showToast('خطا در حذف محصول');
+  if (!supabaseClient) return;
+  try {
+    const { error } = await supabaseClient.from('products').delete().eq('id', id);
+    if(!error){
+      products = products.filter(p => String(p.id) !== String(id));
+      onDataChange();
+      showToast('محصول حذف شد.');
+    } else {
+      showToast('خطا در حذف محصول');
+    }
+  } catch(err) {
+    showToast('خطای شبکه');
   }
 }
 
@@ -788,49 +808,74 @@ let currentView = 'home';
 function go(view){
   currentView = view;
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
-  document.getElementById('view-'+view).classList.add('active');
+  const targetView = document.getElementById('view-'+view);
+  if(targetView) targetView.classList.add('active');
+  
   document.querySelectorAll('.navlink').forEach(b=>b.classList.toggle('active', b.dataset.view===view));
-  document.getElementById('navLinks').classList.remove('open');
+  const navLinks = document.getElementById('navLinks');
+  if(navLinks) navLinks.classList.remove('open');
   window.scrollTo({top:0,behavior:'smooth'});
 
   const isLoggedIn = sessionStorage.getItem('mehrfoona_admin_ok') === '1';
   if(view === 'adminEntry' && isLoggedIn){
-    view = 'adminDash';
+    currentView = 'adminDash';
     document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
-    document.getElementById('view-adminDash').classList.add('active');
+    const adminDash = document.getElementById('view-adminDash');
+    if(adminDash) adminDash.classList.add('active');
   }
-  if(view === 'home') renderHome();
-  if(view === 'shop') renderShop();
-  if(view === 'adminEntry'){
-    document.getElementById('adminEmailInput').value = '';
-    document.getElementById('adminPassInput').value = '';
-    document.getElementById('adminErr').style.display = 'none';
+  
+  if(currentView === 'home') renderHome();
+  if(currentView === 'shop') renderShop();
+  if(currentView === 'adminEntry'){
+    const emailIn = document.getElementById('adminEmailInput');
+    const passIn = document.getElementById('adminPassInput');
+    const errEl = document.getElementById('adminErr');
+    if(emailIn) emailIn.value = '';
+    if(passIn) passIn.value = '';
+    if(errEl) errEl.style.display = 'none';
   }
-  if(view === 'adminDash') renderAdmin();
+  if(currentView === 'adminDash') renderAdmin();
 }
-function toggleMenu(){ document.getElementById('navLinks').classList.toggle('open'); }
+
+function toggleMenu(){ 
+  const navLinks = document.getElementById('navLinks');
+  if(navLinks) navLinks.classList.toggle('open'); 
+}
 
 function renderHome(){
   const rail = document.getElementById('homeCatRail');
-  rail.innerHTML = categories.length ? categories.map(c => {
-    const count = products.filter(p=>p.category===c.name).length;
-    return `<div class="cat-chip" onclick="goShopWithCat('${escapeAttr(c.name)}')">${escapeHtml(c.name)} <span class="n">${count}</span></div>`;
-  }).join('') : `<div style="color:var(--text-dim);font-size:14px">هنوز دسته‌بندی‌ای ثبت نشده است.</div>`;
+  if(rail){
+    rail.innerHTML = categories.length ? categories.map(c => {
+      const count = products.filter(p=>p.category===c.name).length;
+      return `<div class="cat-chip" onclick="goShopWithCat('${escapeAttr(c.name)}')">${escapeHtml(c.name)} <span class="n">${count}</span></div>`;
+    }).join('') : `<div style="color:var(--text-dim);font-size:14px">هنوز دسته‌بندی‌ای ثبت نشده است.</div>`;
+  }
 
   const grid = document.getElementById('homeProductGrid');
-  const featured = products.slice(-8).reverse();
-  grid.innerHTML = featured.length ? featured.map(productCard).join('') : emptyStateHtml('هنوز محصولی ثبت نشده است.');
+  if(grid){
+    const featured = products.slice(-8).reverse();
+    grid.innerHTML = featured.length ? featured.map(productCard).join('') : emptyStateHtml('هنوز محصولی ثبت نشده است.');
+  }
 }
+
 function goShopWithCat(cat){
   go('shop');
-  setTimeout(()=>{ document.getElementById('filterCategory').value = cat; renderShop(); }, 0);
+  setTimeout(()=>{ 
+    const filterCat = document.getElementById('filterCategory');
+    if(filterCat) {
+      filterCat.value = cat; 
+      renderShop(); 
+    }
+  }, 50);
 }
 
 function populateCategorySelects(){
   const filterSel = document.getElementById('filterCategory');
-  const current = filterSel.value;
-  filterSel.innerHTML = '<option value="">همه دسته‌بندی‌ها</option>' + categories.map(c=>`<option value="${escapeAttr(c.name)}">${escapeHtml(c.name)}</option>`).join('');
-  filterSel.value = categories.some(c=>c.name===current) ? current : '';
+  if(filterSel){
+    const current = filterSel.value;
+    filterSel.innerHTML = '<option value="">همه دسته‌بندی‌ها</option>' + categories.map(c=>`<option value="${escapeAttr(c.name)}">${escapeHtml(c.name)}</option>`).join('');
+    filterSel.value = categories.some(c=>c.name===current) ? current : '';
+  }
 
   const pCat = document.getElementById('pCategory');
   if(pCat){
@@ -840,13 +885,20 @@ function populateCategorySelects(){
 
 function renderShop(){
   populateCategorySelects();
-  const q = (document.getElementById('searchInput').value || '').trim();
-  const cat = document.getElementById('filterCategory').value;
+  const searchInput = document.getElementById('searchInput');
+  const filterCat = document.getElementById('filterCategory');
+  
+  const q = searchInput ? (searchInput.value || '').trim() : '';
+  const cat = filterCat ? filterCat.value : '';
+  
   let list = products;
   if(cat) list = list.filter(p=>p.category===cat);
-  if(q) list = list.filter(p=>p.name.includes(q));
+  if(q) list = list.filter(p=>p.name && p.name.includes(q));
+  
   const grid = document.getElementById('shopGrid');
-  grid.innerHTML = list.length ? list.slice().reverse().map(productCard).join('') : emptyStateHtml('محصولی با این مشخصات یافت نشد.');
+  if(grid){
+    grid.innerHTML = list.length ? list.slice().reverse().map(productCard).join('') : emptyStateHtml('محصولی با این مشخصات یافت نشد.');
+  }
 }
 
 function emptyStateHtml(msg){
@@ -881,35 +933,55 @@ function productCard(p){
 }
 
 function openModal(id){
-  const p = products.find(x=>x.id==id);
+  const p = products.find(x=>String(x.id)===String(id));
   if(!p) return;
-  document.getElementById('modalImg').src = p.image || PLACEHOLDER_IMG;
-  document.getElementById('modalImg').onerror = function(){ this.src = PLACEHOLDER_IMG; };
-  document.getElementById('modalCat').textContent = p.category || 'بدون دسته';
-  document.getElementById('modalName').textContent = p.name;
+  const modalImg = document.getElementById('modalImg');
+  if(modalImg){
+    modalImg.src = p.image || PLACEHOLDER_IMG;
+    modalImg.onerror = function(){ this.src = PLACEHOLDER_IMG; };
+  }
+  const modalCat = document.getElementById('modalCat');
+  if(modalCat) modalCat.textContent = p.category || 'بدون دسته';
+  
+  const modalName = document.getElementById('modalName');
+  if(modalName) modalName.textContent = p.name;
+  
   const contact = p.contact || !p.price;
-  document.getElementById('modalPrice').className = 'modal-price' + (contact ? ' contact' : '');
-  document.getElementById('modalPrice').innerHTML = contact ? 'تماس بگیرید' : Number(p.price).toLocaleString('fa-IR') + ' تومان';
-  document.getElementById('modalBackdrop').classList.add('open');
+  const modalPrice = document.getElementById('modalPrice');
+  if(modalPrice){
+    modalPrice.className = 'modal-price' + (contact ? ' contact' : '');
+    modalPrice.innerHTML = contact ? 'تماس بگیرید' : Number(p.price).toLocaleString('fa-IR') + ' تومان';
+  }
+  
+  const backdrop = document.getElementById('modalBackdrop');
+  if(backdrop) backdrop.classList.add('open');
 }
-function closeModal(){ document.getElementById('modalBackdrop').classList.remove('open'); }
+
+function closeModal(){ 
+  const backdrop = document.getElementById('modalBackdrop');
+  if(backdrop) backdrop.classList.remove('open'); 
+}
 
 function adminLogin(){
   const errEl = document.getElementById('adminErr');
-  const emailInput = document.getElementById('adminEmailInput').value.trim();
-  const passInput = document.getElementById('adminPassInput').value;
+  const emailInput = document.getElementById('adminEmailInput');
+  const passInput = document.getElementById('adminPassInput');
+  
+  if(!emailInput || !passInput) return;
+  const emailVal = emailInput.value.trim();
+  const passVal = passInput.value;
   
   const savedEmail = localStorage.getItem(LS_ADMIN_EMAIL) || 'mehrfoon@gmail.com';
   const savedPass = localStorage.getItem(LS_ADMIN_PASS) || 'mehrdad1391';
 
-  if(emailInput === savedEmail && passInput === savedPass){
+  if(emailVal === savedEmail && passVal === savedPass){
     sessionStorage.setItem('mehrfoona_admin_ok','1');
-    errEl.style.display='none';
-    document.getElementById('adminEmailInput').value='';
-    document.getElementById('adminPassInput').value='';
+    if(errEl) errEl.style.display='none';
+    emailInput.value='';
+    passInput.value='';
     go('adminDash');
   } else {
-    errEl.style.display='block';
+    if(errEl) errEl.style.display='block';
   }
 }
 
@@ -921,9 +993,13 @@ function adminLogout(){
 
 function adminTab(tab){
   document.querySelectorAll('.admin-side button[data-tab]').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
-  document.getElementById('tab-products').style.display = tab==='products' ? 'block':'none';
-  document.getElementById('tab-categories').style.display = tab==='categories' ? 'block':'none';
-  document.getElementById('tab-settings').style.display = tab==='settings' ? 'block':'none';
+  const tProd = document.getElementById('tab-products');
+  const tCat = document.getElementById('tab-categories');
+  const tSet = document.getElementById('tab-settings');
+  
+  if(tProd) tProd.style.display = tab==='products' ? 'block':'none';
+  if(tCat) tCat.style.display = tab==='categories' ? 'block':'none';
+  if(tSet) tSet.style.display = tab==='settings' ? 'block':'none';
   if(tab === 'settings') prepareSettingsForm();
 }
 
@@ -936,17 +1012,24 @@ function renderAdmin(){
 
 function prepareSettingsForm(){
   const emailField = document.getElementById('setNewEmail');
+  const passField = document.getElementById('setNewPass');
+  const passConfField = document.getElementById('setNewPassConfirm');
   if(emailField){
     emailField.value = localStorage.getItem(LS_ADMIN_EMAIL) || 'mehrfoon@gmail.com';
-    document.getElementById('setNewPass').value = '';
-    document.getElementById('setNewPassConfirm').value = '';
+    if(passField) passField.value = '';
+    if(passConfField) passConfField.value = '';
   }
 }
 
 function saveAdminCredentials(){
-  const newEmail = document.getElementById('setNewEmail').value.trim();
-  const newPass = document.getElementById('setNewPass').value;
-  const newPassConfirm = document.getElementById('setNewPassConfirm').value;
+  const emailField = document.getElementById('setNewEmail');
+  const passField = document.getElementById('setNewPass');
+  const passConfField = document.getElementById('setNewPassConfirm');
+  
+  if(!emailField) return;
+  const newEmail = emailField.value.trim();
+  const newPass = passField ? passField.value : '';
+  const newPassConfirm = passConfField ? passConfField.value : '';
 
   if(!newEmail){ showToast('ایمیل نمی‌تواند خالی باشد.'); return; }
   if(newPass && newPass !== newPassConfirm){ showToast('رمزهای عبور جدید مطابقت ندارند.'); return; }
@@ -955,30 +1038,35 @@ function saveAdminCredentials(){
   if(newPass){
     localStorage.setItem(LS_ADMIN_PASS, newPass);
   }
-  showToast('اطلاعات ورود ادمین با موفقیت بروزرسانی شد.');
+  showToast('اطلاعات ورود ادمین بروزرسانی شد.');
   prepareSettingsForm();
 }
 
 function renderAdminCats(){
   const list = document.getElementById('adminCatList');
-  list.innerHTML = categories.length ? categories.map(c=>`
-    <div class="tag-pill">
-      <span>${escapeHtml(c.name)}</span>
-      <button onclick="deleteCategory('${escapeAttr(c.id)}')" title="حذف">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
-    </div>`).join('') : '<div style="color:var(--text-dim);font-size:14px">هیچ دسته‌بندی‌ای وجود ندارد.</div>';
+  if(list){
+    list.innerHTML = categories.length ? categories.map(c=>`
+      <div class="tag-pill">
+        <span>${escapeHtml(c.name)}</span>
+        <button onclick="deleteCategory('${escapeAttr(c.id)}')" title="حذف">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>`).join('') : '<div style="color:var(--text-dim);font-size:14px">هیچ دسته‌بندی‌ای وجود ندارد.</div>';
+  }
 }
+
 function addCategory(){
   const input = document.getElementById('newCatName');
+  if(!input) return;
   const name = input.value.trim();
   if(!name){ showToast('نام دسته‌بندی را وارد کنید.'); return; }
   if(categories.some(c=>c.name===name)){ showToast('این دسته‌بندی از قبل وجود دارد.'); return; }
   catAdd(name);
   input.value='';
 }
+
 function deleteCategory(id){
-  const c = categories.find(x=>x.id==id);
+  const c = categories.find(x=>String(x.id)===String(id));
   const name = c ? c.name : '';
   if(!confirm(`دسته‌بندی «${name}» حذف شود؟`)) return;
   catDelete(id);
@@ -989,10 +1077,16 @@ let pendingImageData = '';
 
 function setImgMode(mode){
   imgMode = mode;
-  document.getElementById('imgModeUrlBtn').classList.toggle('active', mode==='url');
-  document.getElementById('imgModeFileBtn').classList.toggle('active', mode==='file');
-  document.getElementById('imgModeUrl').style.display = mode==='url' ? 'block':'none';
-  document.getElementById('imgModeFile').style.display = mode==='file' ? 'block':'none';
+  const urlBtn = document.getElementById('imgModeUrlBtn');
+  const fileBtn = document.getElementById('imgModeFileBtn');
+  const urlDiv = document.getElementById('imgModeUrl');
+  const fileDiv = document.getElementById('imgModeFile');
+  
+  if(urlBtn) urlBtn.classList.toggle('active', mode==='url');
+  if(fileBtn) fileBtn.classList.toggle('active', mode==='file');
+  if(urlDiv) urlDiv.style.display = mode==='url' ? 'block':'none';
+  if(fileDiv) fileDiv.style.display = mode==='file' ? 'block':'none';
+  
   if(mode === 'url'){
     updatePreviewFromUrl();
   } else {
@@ -1002,7 +1096,8 @@ function setImgMode(mode){
 
 function updatePreviewFromUrl(){
   if(imgMode === 'url'){
-    pendingImageData = document.getElementById('pImageUrl').value.trim();
+    const urlInput = document.getElementById('pImageUrl');
+    pendingImageData = urlInput ? urlInput.value.trim() : '';
     updatePreview();
   }
 }
@@ -1020,6 +1115,7 @@ function handleFileSelect(e){
 
 function updatePreview(){
   const img = document.getElementById('imgPreview');
+  if(!img) return;
   if(pendingImageData){
     img.src = pendingImageData;
     img.style.display = 'block';
@@ -1031,17 +1127,21 @@ function updatePreview(){
 }
 
 function renderAdminProds(){
-  document.getElementById('prodCount').textContent = products.length.toLocaleString('fa-IR');
+  const countEl = document.getElementById('prodCount');
+  if(countEl) countEl.textContent = products.length.toLocaleString('fa-IR');
+  
   const tbody = document.getElementById('adminProdTbody');
-  tbody.innerHTML = products.length ? products.slice().reverse().map(p=>`
-    <tr>
-      <td><img class="prod-thumb" src="${escapeAttr(p.image||PLACEHOLDER_IMG)}" onerror="this.src='${PLACEHOLDER_IMG}'"></td>
-      <td>${escapeHtml(p.name)}</td>
-      <td>${escapeHtml(p.category||'—')}</td>
-      <td>${p.contact||!p.price ? 'تماس بگیرید' : Number(p.price).toLocaleString('fa-IR')+' تومان'}</td>
-      <td><button class="btn btn-danger btn-sm" onclick="deleteProduct('${p.id}')">حذف</button></td>
-    </tr>
-  `).join('') : `<tr><td colspan="5" style="text-align:center;color:var(--text-dim);padding:26px">هنوز محصولی ثبت نشده است.</td></tr>`;
+  if(tbody){
+    tbody.innerHTML = products.length ? products.slice().reverse().map(p=>`
+      <tr>
+        <td><img class="prod-thumb" src="${escapeAttr(p.image||PLACEHOLDER_IMG)}" onerror="this.src='${PLACEHOLDER_IMG}'"></td>
+        <td>${escapeHtml(p.name)}</td>
+        <td>${escapeHtml(p.category||'—')}</td>
+        <td>${p.contact||!p.price ? 'تماس بگیرید' : Number(p.price).toLocaleString('fa-IR')+' تومان'}</td>
+        <td><button class="btn btn-danger btn-sm" onclick="deleteProduct('${p.id}')">حذف</button></td>
+      </tr>
+    `).join('') : `<tr><td colspan="5" style="text-align:center;color:var(--text-dim);padding:26px">هنوز محصولی ثبت نشده است.</td></tr>`;
+  }
 }
 
 function addProduct(){
@@ -1051,18 +1151,19 @@ function addProduct(){
   const priceInput = document.getElementById('pPrice');
   const urlInput = document.getElementById('pImageUrl');
 
+  if(!nameInput || !catInput) return;
   const name = nameInput.value.trim();
   const category = catInput.value;
-  const contact = contactInput.checked;
-  const priceRaw = priceInput.value;
+  const contact = contactInput ? contactInput.checked : false;
+  const priceRaw = priceInput ? priceInput.value : '';
 
   if(!name){ showToast('نام محصول را وارد کنید.'); return; }
   if(!category){ showToast('ابتدا یک دسته‌بندی انتخاب یا ایجاد کنید.'); return; }
-  if(!contact && (!priceRaw || Number(priceRaw) < 0)){ showToast('قیمت را وارد کنید یا گزینه «تماس بگیرید» را فعال کنید.'); return; }
+  if(!contact && (!priceRaw || Number(priceRaw) < 0)){ showToast('قیمت را وارد کنید یا گزینه تماس را فعال کنید.'); return; }
 
   let image = '';
   if(imgMode === 'url'){
-    image = urlInput.value.trim();
+    image = urlInput ? urlInput.value.trim() : '';
   } else {
     image = pendingImageData;
   }
@@ -1076,11 +1177,14 @@ function addProduct(){
   });
 
   nameInput.value = '';
-  priceInput.value = '';
-  contactInput.checked = false;
-  priceInput.disabled = false;
-  urlInput.value = '';
-  document.getElementById('pImageFile').value = '';
+  if(priceInput) priceInput.value = '';
+  if(contactInput) contactInput.checked = false;
+  if(priceInput) priceInput.disabled = false;
+  if(urlInput) urlInput.value = '';
+  
+  const fileInput = document.getElementById('pImageFile');
+  if(fileInput) fileInput.value = '';
+  
   pendingImageData = '';
   updatePreview();
 }
@@ -1092,11 +1196,13 @@ function deleteProduct(id){
 
 function showToast(msg){
   const t = document.getElementById('toast');
+  if(!t) return;
   t.textContent = msg;
   t.classList.add('show');
   clearTimeout(window._toastTimer);
   window._toastTimer = setTimeout(()=>t.classList.remove('show'), 2400);
 }
+
 function escapeHtml(str){
   return String(str ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 }
