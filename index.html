@@ -6,6 +6,8 @@
 <title>مهرفونا | لوازم جانبی موبایل</title>
 <link rel="preconnect" href="https://cdn.jsdelivr.net">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vazirmatn@33.003/Vazirmatn-font-face.css">
+<!-- کتابخانه Supabase -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{
     --bg:#0b0a09;
@@ -367,7 +369,6 @@
 <header class="site">
   <div class="wrap nav">
     <div class="brand" style="cursor:pointer" onclick="go('home')">
-      <!-- لوگوی SVG اکوسیستم موبایل -->
       <svg class="ecosystem-logo" viewBox="0 0 130 130" fill="none" xmlns="http://www.w3.org/2000/svg">
         <circle cx="65" cy="65" r="58" stroke="#ff7a1f" stroke-opacity="0.3" stroke-width="2"/>
         <rect x="49" y="26" width="32" height="68" rx="8" fill="#16120f" stroke="#ff7a1f" stroke-width="3"/>
@@ -669,8 +670,11 @@
 <div class="toast" id="toast"></div>
 
 <script>
-const LS_CATS = 'mehrfoona_categories';
-const LS_PRODS = 'mehrfoona_products';
+// تنظیمات اتصال به Supabase
+const SUPABASE_URL = 'https://poisergmohkntddzbhhi.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_py_PgCVX98eszkf4Y5m8Nw_trcc6nld';
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
 const LS_ADMIN_EMAIL = 'mehrfoona_admin_email';
 const LS_ADMIN_PASS = 'mehrfoona_admin_pass';
 
@@ -678,16 +682,36 @@ const PLACEHOLDER_IMG = 'data:image/svg+xml;utf8,' + encodeURIComponent(
   `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="360"><rect width="400" height="360" fill="#171310"/><text x="50%" y="50%" fill="#786b5c" font-size="18" font-family="sans-serif" text-anchor="middle" dy=".3em">بدون تصویر</text></svg>`
 );
 
-function uid(){ return 'id' + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
-
 let categories = [];   
 let products = [];     
 
-function initData(){
+async function initData(){
   loadAdminCredentials();
-  loadLocalCats();
-  loadLocalProds();
+  await loadDbData();
   onDataChange();
+}
+
+async function loadDbData(){
+  // خواندن دسته‌بندی‌ها از Supabase
+  const { data: catData, error: catErr } = await supabase.from('categories').select('*');
+  if (!catErr && catData && catData.length > 0) {
+    categories = catData;
+  } else {
+    // دسته‌بندی‌های پیش‌فرض در صورت خالی بودن دیتابیس
+    categories = [
+      {id: '1', name: 'کاور و قاب گوشی'},
+      {id: '2', name: 'هندزفری و هدفون'},
+      {id: '3', name: 'شارژر و کابل'},
+      {id: '4', name: 'پاوربانک'},
+      {id: '5', name: 'لوازم جانبی هوشمند'}
+    ];
+  }
+
+  // خواندن محصولات از Supabase
+  const { data: prodData, error: prodErr } = await supabase.from('products').select('*');
+  if (!prodErr && prodData) {
+    products = prodData;
+  }
 }
 
 function loadAdminCredentials(){
@@ -699,65 +723,54 @@ function loadAdminCredentials(){
   }
 }
 
-function loadLocalCats(){
-  let c = JSON.parse(localStorage.getItem(LS_CATS) || 'null');
-  if(!c){
-    c = ['کاور و قاب گوشی','هندزفری و هدفون','شارژر و کابل','پاوربانک','لوازم جانبی هوشمند'].map(name=>({id:uid(), name}));
-  } else if(c.length && typeof c[0] === 'string'){
-    c = c.map(name=>({id:uid(), name}));
-  }
-  categories = c;
-  saveLocalCats();
-}
-function saveLocalCats(){ localStorage.setItem(LS_CATS, JSON.stringify(categories)); }
-
-function loadLocalProds(){
-  let p = JSON.parse(localStorage.getItem(LS_PRODS) || 'null');
-  if(!p) p = seedProducts();
-  products = p;
-  saveLocalProds();
-}
-function saveLocalProds(){ localStorage.setItem(LS_PRODS, JSON.stringify(products)); }
-
-function seedProducts(){
-  const c = categories;
-  return [
-    {id:uid(), name:'کاور سیلیکونی مگ‌سیف آیفون ۱۵', category:c[0]?.name, price:320000, contact:false, image:'https://images.unsplash.com/photo-1601593346740-925612772716?w=600&q=80'},
-    {id:uid(), name:'هندزفری بی‌سیم تایپ C', category:c[1]?.name, price:450000, contact:false, image:'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=600&q=80'},
-    {id:uid(), name:'کابل شارژ فست شارژ ۱۲۰ وات', category:c[2]?.name, price:180000, contact:false, image:'https://images.unsplash.com/photo-1583863788434-e58a36330cf0?w=600&q=80'},
-    {id:uid(), name:'پاوربانک ۲۰۰۰۰ میلی‌آمپر', category:c[3]?.name, price:null, contact:true, image:'https://images.unsplash.com/photo-1609091839311-d5365f9ff1c5?w=600&q=80'},
-    {id:uid(), name:'ساعت هوشمند سری ۹', category:c[4]?.name, price:2950000, contact:false, image:'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&q=80'},
-    {id:uid(), name:'قاب چرمی مگ‌سیف سامسونگ', category:c[0]?.name, price:280000, contact:false, image:'https://images.unsplash.com/photo-1592286927505-1def25115481?w=600&q=80'},
-    {id:uid(), name:'هدفون بلوتوثی دور گردنی', category:c[1]?.name, price:390000, contact:false, image:'https://images.unsplash.com/photo-1583394838336-acd977736f90?w=600&q=80'},
-    {id:uid(), name:'شارژر دیواری دو پورت PD', category:c[2]?.name, price:null, contact:true, image:'https://images.unsplash.com/photo-1583863788434-e58a36330cf0?w=600&q=80'}
-  ];
-}
-
 function onDataChange(){
   if(currentView === 'home') renderHome();
   if(currentView === 'shop') renderShop();
   if(currentView === 'adminDash'){ populateCategorySelects(); renderAdminCats(); renderAdminProds(); prepareSettingsForm(); }
 }
 
-function catAdd(name){
-  categories.push({id:uid(), name});
-  saveLocalCats();
-  onDataChange();
+async function catAdd(name){
+  const { data, error } = await supabase.from('categories').insert([{ name }]).select();
+  if(!error && data) {
+    categories.push(data[0]);
+    onDataChange();
+    showToast('دسته‌بندی با موفقیت افزوده شد.');
+  } else {
+    showToast('خطا در افزودن دسته‌بندی به دیتابیس');
+  }
 }
-function catDelete(id){
-  categories = categories.filter(c=>c.id!==id);
-  saveLocalCats();
-  onDataChange();
+
+async function catDelete(id){
+  const { error } = await supabase.from('categories').delete().eq('id', id);
+  if(!error){
+    categories = categories.filter(c=>c.id!==id);
+    onDataChange();
+    showToast('دسته‌بندی حذف شد.');
+  } else {
+    showToast('خطا در حذف دسته‌بندی');
+  }
 }
-function prodAdd(obj){
-  products.push({id:uid(), ...obj});
-  saveLocalProds();
-  onDataChange();
+
+async function prodAdd(obj){
+  const { data, error } = await supabase.from('products').insert([obj]).select();
+  if(!error && data){
+    products.push(data[0]);
+    onDataChange();
+    showToast('محصول با موفقیت اضافه شد.');
+  } else {
+    showToast('خطا در افزودن محصول به دیتابیس');
+  }
 }
-function prodDelete(id){
-  products = products.filter(p=>p.id!==id);
-  saveLocalProds();
-  onDataChange();
+
+async function prodDelete(id){
+  const { error } = await supabase.from('products').delete().eq('id', id);
+  if(!error){
+    products = products.filter(p=>p.id!=id);
+    onDataChange();
+    showToast('محصول حذف شد.');
+  } else {
+    showToast('خطا در حذف محصول');
+  }
 }
 
 let currentView = 'home';
@@ -857,7 +870,7 @@ function productCard(p){
 }
 
 function openModal(id){
-  const p = products.find(x=>x.id===id);
+  const p = products.find(x=>x.id==id);
   if(!p) return;
   document.getElementById('modalImg').src = p.image || PLACEHOLDER_IMG;
   document.getElementById('modalImg').onerror = function(){ this.src = PLACEHOLDER_IMG; };
@@ -952,14 +965,12 @@ function addCategory(){
   if(categories.some(c=>c.name===name)){ showToast('این دسته‌بندی از قبل وجود دارد.'); return; }
   catAdd(name);
   input.value='';
-  showToast('دسته‌بندی با موفقیت افزوده شد.');
 }
 function deleteCategory(id){
-  const c = categories.find(x=>x.id===id);
+  const c = categories.find(x=>x.id==id);
   const name = c ? c.name : '';
-  if(!confirm(`دسته‌بندی «${name}» حذف شود؟ محصولات این دسته حذف نمی‌شوند اما بدون دسته باقی می‌مانند.`)) return;
+  if(!confirm(`دسته‌بندی «${name}» حذف شود؟`)) return;
   catDelete(id);
-  showToast('دسته‌بندی حذف شد.');
 }
 
 let imgMode = 'url';
@@ -1061,14 +1072,11 @@ function addProduct(){
   document.getElementById('pImageFile').value = '';
   pendingImageData = '';
   updatePreview();
-
-  showToast('محصول با موفقیت اضافه شد.');
 }
 
 function deleteProduct(id){
   if(!confirm('این محصول حذف شود؟')) return;
   prodDelete(id);
-  showToast('محصول حذف شد.');
 }
 
 function showToast(msg){
