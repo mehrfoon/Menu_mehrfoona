@@ -673,7 +673,14 @@
 // تنظیمات اتصال به Supabase
 const SUPABASE_URL = 'https://poisergmohkntddzbhhi.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_py_PgCVX98eszkf4Y5m8Nw_trcc6nld';
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+let supabase = null;
+try {
+  if (window.supabase) {
+    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  }
+} catch(e) {
+  console.error("Supabase init error:", e);
+}
 
 const LS_ADMIN_EMAIL = 'mehrfoona_admin_email';
 const LS_ADMIN_PASS = 'mehrfoona_admin_pass';
@@ -682,7 +689,13 @@ const PLACEHOLDER_IMG = 'data:image/svg+xml;utf8,' + encodeURIComponent(
   `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="360"><rect width="400" height="360" fill="#171310"/><text x="50%" y="50%" fill="#786b5c" font-size="18" font-family="sans-serif" text-anchor="middle" dy=".3em">بدون تصویر</text></svg>`
 );
 
-let categories = [];   
+let categories = [
+  {id: '1', name: 'کاور و قاب گوشی'},
+  {id: '2', name: 'هندزفری و هدفون'},
+  {id: '3', name: 'شارژر و کابل'},
+  {id: '4', name: 'پاوربانک'},
+  {id: '5', name: 'لوازم جانبی هوشمند'}
+];   
 let products = [];     
 
 async function initData(){
@@ -692,25 +705,19 @@ async function initData(){
 }
 
 async function loadDbData(){
-  // خواندن دسته‌بندی‌ها از Supabase
-  const { data: catData, error: catErr } = await supabase.from('categories').select('*');
-  if (!catErr && catData && catData.length > 0) {
-    categories = catData;
-  } else {
-    // دسته‌بندی‌های پیش‌فرض در صورت خالی بودن دیتابیس
-    categories = [
-      {id: '1', name: 'کاور و قاب گوشی'},
-      {id: '2', name: 'هندزفری و هدفون'},
-      {id: '3', name: 'شارژر و کابل'},
-      {id: '4', name: 'پاوربانک'},
-      {id: '5', name: 'لوازم جانبی هوشمند'}
-    ];
-  }
+  if (!supabase) return;
+  try {
+    const { data: catData, error: catErr } = await supabase.from('categories').select('*');
+    if (!catErr && catData && catData.length > 0) {
+      categories = catData;
+    }
 
-  // خواندن محصولات از Supabase
-  const { data: prodData, error: prodErr } = await supabase.from('products').select('*');
-  if (!prodErr && prodData) {
-    products = prodData;
+    const { data: prodData, error: prodErr } = await supabase.from('products').select('*');
+    if (!prodErr && prodData) {
+      products = prodData;
+    }
+  } catch (err) {
+    console.error("Failed to load from database:", err);
   }
 }
 
@@ -730,6 +737,7 @@ function onDataChange(){
 }
 
 async function catAdd(name){
+  if (!supabase) { showToast('ارتباط با دیتابیس برقرار نیست'); return; }
   const { data, error } = await supabase.from('categories').insert([{ name }]).select();
   if(!error && data) {
     categories.push(data[0]);
@@ -741,9 +749,10 @@ async function catAdd(name){
 }
 
 async function catDelete(id){
+  if (!supabase) return;
   const { error } = await supabase.from('categories').delete().eq('id', id);
   if(!error){
-    categories = categories.filter(c=>c.id!==id);
+    categories = categories.filter(c=>c.id!=id);
     onDataChange();
     showToast('دسته‌بندی حذف شد.');
   } else {
@@ -752,6 +761,7 @@ async function catDelete(id){
 }
 
 async function prodAdd(obj){
+  if (!supabase) { showToast('ارتباط با دیتابیس برقرار نیست'); return; }
   const { data, error } = await supabase.from('products').insert([obj]).select();
   if(!error && data){
     products.push(data[0]);
@@ -763,6 +773,7 @@ async function prodAdd(obj){
 }
 
 async function prodDelete(id){
+  if (!supabase) return;
   const { error } = await supabase.from('products').delete().eq('id', id);
   if(!error){
     products = products.filter(p=>p.id!=id);
